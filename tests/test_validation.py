@@ -1,3 +1,4 @@
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
@@ -6,9 +7,11 @@ from jp_ohlcv.validation import validate_parquet
 
 
 def write_dataset(path, timestamps, opens, highs, lows, closes, volumes):
+    timestamp_values = pd.to_datetime(timestamps, utc=True)
+
     table = pa.table({
         "timestamp": pa.array(
-            timestamps,
+            timestamp_values,
             type=pa.timestamp("ns", tz="UTC"),
         ),
         "open": pa.array(opens, type=pa.float64()),
@@ -38,8 +41,7 @@ def valid_values():
 
 def test_valid_dataset(tmp_path):
     path = tmp_path / "valid.parquet"
-    pq_values = valid_values()
-    write_dataset(path, *pq_values)
+    write_dataset(path, *valid_values())
 
     result = validate_parquet(path, expected_year=2024)
 
