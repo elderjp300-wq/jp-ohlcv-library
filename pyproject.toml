@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jp-ohlcv-library"
+version = "0.1.0"
+description = "Historical 1-minute OHLCV data processing and validation tools"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "UNLICENSED" }
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "pyarrow>=17",
+    "requests>=2.32"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "jsonschema>=4.23"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-project:
+    name: Validate project and test code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project dependencies on runner
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Validate catalog JSON
+        run: |
+          python - <<'PY'
+          import json
+          from jsonschema import validate
+
+          with open("data/index.json", encoding="utf-8") as f:
+              catalog = json.load(f)
+
+          with open("docs/catalog-schema.json", encoding="utf-8") as f:
+              schema = json.load(f)
+
+          validate(instance=catalog, schema=schema)
+
+          assert catalog["supported_years"] == [2023, 2024, 2025]
+          assert len(catalog["supported_assets"]) == 6
+          assert catalog["datasets"] == []
+
+          print("Catalog validation passed.")
+          PY
+
+      - name: Check Python source syntax
+        run: python -m compileall -q src tools tests
+
+      - name: Run test suite
+        run: python -m pytest -v

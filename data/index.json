@@ -1,1 +1,22 @@
-{}
+{
+  "schema_version": 1,
+  "library": {
+    "name": "JP OHLCV Library",
+    "repository": "https://github.com/elderjp300-wq/jp-ohlcv-library"
+  },
+  "defaults": {
+    "timeframe": "1m",
+    "timezone": "UTC",
+    "format": "parquet"
+  },
+  "supported_assets": [
+    "EURUSD",
+    "GBPUSD",
+    "US30",
+    "US100",
+    "XAUUSD",
+    "USDJPY"
+  ],
+  "supported_years": [2023, 2024, 2025],
+  "datasets": []
+}

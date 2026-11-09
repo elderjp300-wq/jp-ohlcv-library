@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JP OHLCV Library Catalog",
+  "type": "object",
+  "required": [
+    "schema_version", "library", "defaults",
+    "supported_assets", "supported_years", "datasets"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "library": {
+      "type": "object",
+      "required": ["name", "repository"],
+      "properties": {
+        "name": {"type": "string"},
+        "repository": {"type": "string", "format": "uri"}
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "type": "object",
+      "required": ["timeframe", "timezone", "format"],
+      "properties": {
+        "timeframe": {"const": "1m"},
+        "timezone": {"const": "UTC"},
+        "format": {"const": "parquet"}
+      },
+      "additionalProperties": false
+    },
+    "supported_assets": {
+      "type": "array",
+      "items": {
+        "enum": ["EURUSD", "GBPUSD", "US30", "US100", "XAUUSD", "USDJPY"]
+      },
+      "uniqueItems": true
+    },
+    "supported_years": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 2023,
+        "maximum": 2026
+      },
+      "uniqueItems": true
+    },
+    "datasets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "asset", "year", "timeframe", "format", "path",
+          "rows", "size_bytes", "sha256", "first_timestamp",
+          "last_timestamp", "price_basis", "volume_type"
+        ],
+        "properties": {
+          "asset": {
+            "enum": ["EURUSD", "GBPUSD", "US30", "US100", "XAUUSD", "USDJPY"]
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 2023,
+            "maximum": 2026
+          },
+          "timeframe": {"const": "1m"},
+          "format": {"const": "parquet"},
+          "path": {"type": "string"},
+          "rows": {"type": "integer", "minimum": 1},
+          "size_bytes": {"type": "integer", "minimum": 1},
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "first_timestamp": {"type": "string", "format": "date-time"},
+          "last_timestamp": {"type": "string", "format": "date-time"},
+          "price_basis": {"type": "string"},
+          "volume_type": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
