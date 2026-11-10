@@ -37,16 +37,53 @@ jobs:
       - name: Install dependencies
         run: pip install dukascopy-downloader==1.1.0 pandas pyarrow
 
+      - name: Resolve provider symbol
+        id: sym
+        run: |
+          ASSET="${{ inputs.asset }}"
+          case "$ASSET" in
+            US30)
+              for cand in "USA30.IDX-USD" "USA30IDXUSD" "USA30" "US30.IDX-USD" "DJI30.IDX-USD"; do
+                if duka info "$cand" >/dev/null 2>&1; then
+                  echo "provider=$cand" >> $GITHUB_OUTPUT
+                  echo "US30 resolved to: $cand"
+                  exit 0
+                fi
+              done
+              echo "US30: no candidate worked. Candidates tried:" >&2
+              echo "USA30.IDX-USD USA30IDXUSD USA30 US30.IDX-USD DJI30.IDX-USD" >&2
+              duka instruments --search US30 2>&1 | head -40 >&2 || true
+              exit 1
+              ;;
+            US100)
+              for cand in "USATECH.IDX-USD" "USATECHIDXUSD" "USATECH" "US100.IDX-USD" "NAS100.IDX-USD"; do
+                if duka info "$cand" >/dev/null 2>&1; then
+                  echo "provider=$cand" >> $GITHUB_OUTPUT
+                  echo "US100 resolved to: $cand"
+                  exit 0
+                fi
+              done
+              echo "US100: no candidate worked. Candidates tried:" >&2
+              echo "USATECH.IDX-USD USATECHIDXUSD USATECH US100.IDX-USD NAS100.IDX-USD" >&2
+              duka instruments --search US100 2>&1 | head -40 >&2 || true
+              exit 1
+              ;;
+            *)
+              echo "provider=$ASSET" >> $GITHUB_OUTPUT
+              echo "$ASSET uses identity symbol"
+              ;;
+          esac
+
       - name: Download M1 candles
         run: |
-          duka download ${{ inputs.asset }} \
+          duka download ${{ steps.sym.outputs.provider }} \
             --tf m1 --from ${{ inputs.year }}-01-01 --to ${{ inputs.year }}-12-31 \
             --side BID --data-dir cache --rate 2
 
       - name: Export to Parquet
         run: |
           mkdir -p "data/${{ inputs.asset }}/${{ inputs.year }}"
-          duka export ${{ inputs.asset }} \
+          duka export ${{ steps.sym.outputs.provider }} \
             --from ${{ inputs.year }}-01-01 --to ${{ inputs.year }}-12-31 \
             --side BID --data-dir cache \
             -o "data/${{ inputs.asset }}/${{ inputs.year }}/1min.parquet"
