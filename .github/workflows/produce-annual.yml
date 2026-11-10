@@ -57,7 +57,9 @@ jobs:
           python scripts/produce.py \
             --path "data/${{ inputs.asset }}/${{ inputs.year }}/1min.parquet" \
             --asset "${{ inputs.asset }}" \
-            --year ${{ inputs.year }}
+            --year ${{ inputs.year }} \
+            --min-weekday-candles 1000 \
+            --max-sparse-weekdays 5
 
       - name: Commit dataset and catalog
         run: |
