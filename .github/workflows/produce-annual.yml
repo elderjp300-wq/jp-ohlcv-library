@@ -1,0 +1,127 @@
+name: Produce Annual Dataset
+
+on:
+  workflow_dispatch:
+    inputs:
+      asset:
+        type: choice
+        options: [EURUSD, GBPUSD, USDJPY, XAUUSD, US30, US100]
+        required: true
+      year:
+        type: choice
+        options: ["2023", "2024", "2025"]
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dukascopy-downloader
+        run: pip install dukascopy-downloader==1.1.0
+
+      - name: Download M1 candles
+        run: |
+          duka download ${{ inputs.asset }} \
+            --tf m1 \
+            --from ${{ inputs.year }}-01-01 \
+            --to ${{ inputs.year }}-12-31 \
+            --side BID \
+            --data-dir cache \
+            --rate 2
+
+      - name: Export to Parquet
+        run: |
+          mkdir -p data/${{ inputs.asset }}/${{ inputs.year }}
+          duka export ${{ inputs.asset }} \
+            --from ${{ inputs.year }}-01-01 \
+            --to ${{ inputs.year }}-12-31 \
+            --side BID \
+            --data-dir cache \
+            -o data/${{ inputs.asset }}/${{ inputs.year }}/1min.parquet
+
+      - name: Normalize schema and validate completeness
+        run: |
+          python - <<'PY'
+          import pandas as pd, json, pathlib, sys
+
+          asset = "${{ inputs.asset }}"
+          year  = int("${{ inputs.year }}")
+          path  = pathlib.Path(f"data/{asset}/{year}/1min.parquet")
+          df    = pd.read_parquet(path)
+
+          # --- rename any stray columns ---------------------------------
+          df.columns = [str(c).strip().lower() for c in df.columns]
+          aliases = {"time":"timestamp","datetime":"timestamp","date":"timestamp","vol":"volume"}
+          df = df.rename(columns={k:v for k,v in aliases.items() if k in df.columns and v not in df.columns})
+
+          required = ["timestamp","open","high","low","close","volume"]
+          missing  = [c for c in required if c not in df.columns]
+          if missing:
+              sys.exit(f"EXPORT MISSING COLUMNS: {missing}. Found: {list(df.columns)}")
+
+          df = df[required].copy()
+          df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="raise")
+
+          # --- hard integrity checks ------------------------------------
+          assert not df["timestamp"].duplicated().any(), "duplicate timestamps"
+          assert df["timestamp"].is_monotonic_increasing, "timestamps out of order"
+          assert df[["open","high","low","close"]] > 0, "non-positive price"
+          assert (df["high"] >= df[["open","close"]].max(axis=1)).all(), "high < open/close"
+          assert (df["low"]  <= df[["open","close"]].min(axis=1)).all(), "low  > open/close"
+          assert (df["high"] >= df["low"]).all(), "high < low"
+
+          # --- completeness gate ----------------------------------------
+          expected_full_year = 525_600          # 365 * 1440
+          if asset in {"EURUSD","GBPUSD","USDJPY","XAUUSD"}:
+              if len(df) < 500_000:
+                  sys.exit(f"INCOMPLETE: {asset} {year} has only {len(df):,} rows; expected ~525,600")
+          elif asset in {"US30","US100"}:
+              if len(df) < 100_000:
+                  sys.exit(f"INCOMPLETE: {asset} {year} has only {len(df):,} rows; expected >100,000")
+
+          # --- overwrite with exact schema ------------------------------
+          df.to_parquet(path, index=False, compression="snappy")
+          print(f"VALIDATED {asset} {year}: {len(df):,} rows")
+          PY
+
+      - name: Commit dataset and catalog
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "data/${{ inputs.asset }}/${{ inputs.year }}/1min.parquet"
+
+          python - <<'PY'
+          import json, pathlib
+          asset = "${{ inputs.asset }}"
+          year  = int("${{ inputs.year }}")
+          idx   = pathlib.Path("data/index.json")
+          cat   = json.loads(idx.read_text())
+          cat["datasets"] = [d for d in cat["datasets"] if not (d["asset"] == asset and d["year"] == year)]
+          cat["datasets"].append({
+              "asset": asset, "year": year,
+              "timeframe": "1m", "format": "parquet",
+              "path": f"data/{asset}/{year}/1min.parquet",
+              "price_basis": "Dukascopy BID candles",
+              "volume_type": "provider-reported candle volume"
+          })
+          cat["datasets"].sort(key=lambda x: (x["asset"], x["year"]))
+          idx.write_text(json.dumps(cat, indent=2) + "\n")
+          PY
+
+          git add data/index.json
+          git diff --cached --quiet || git commit -m "Add ${asset} ${year} M1 dataset (native duka M1)"
+          git push origin develop
