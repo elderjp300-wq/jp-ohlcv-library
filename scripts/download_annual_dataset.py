@@ -130,7 +130,7 @@ def normalize_export(source: Path, destination: Path, year: int) -> None:
     if not (timestamps.dt.year == year).all():
         raise ValueError(f"Export contains timestamps outside {year}.")
 
-    if (timestamps.astype("int64") % 60_000_000_000 != 0).any():
+    if timestamps.ne(timestamps.dt.floor("min")).any():
         raise ValueError("Export contains timestamps not aligned to minutes.")
 
     if timestamps.duplicated().any():
