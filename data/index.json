@@ -123,6 +123,20 @@
     },
     {
       "asset": "USDJPY",
+      "year": 2023,
+      "timeframe": "1m",
+      "format": "parquet",
+      "path": "data/USDJPY/2023/1min.parquet",
+      "rows": 372049,
+      "size_bytes": 6820870,
+      "sha256": "810dd5411a75fa23796c5bde4c2c66fb02328f7f0e34717e36a453bb02b99a44",
+      "first_timestamp": "2023-01-01T22:00:00+00:00",
+      "last_timestamp": "2023-12-29T21:59:00+00:00",
+      "price_basis": "Dukascopy BID candles",
+      "volume_type": "Dukascopy provider-reported candle volume; semantics not independently verified"
+    },
+    {
+      "asset": "USDJPY",
       "year": 2024,
       "timeframe": "1m",
       "format": "parquet",
