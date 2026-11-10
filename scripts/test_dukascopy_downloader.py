@@ -23,8 +23,8 @@ INSTRUMENTS = {
         "search": "USA30",
     },
     "US100": {
-        "provider_symbol": "USA100.TECH.IDX-USD",
-        "search": "USA100",
+        "provider_symbol": "USATECH.IDX-USD",
+        "search": "USATECH",
     },
 }
 
