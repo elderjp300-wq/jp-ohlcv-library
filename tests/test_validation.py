@@ -47,11 +47,14 @@ def test_valid_dataset(tmp_path):
 
     assert result["valid"] is True
     assert result["rows"] == 3
+    assert result["gap_intervals"] == 0
+    assert result["missing_minutes"] == 0
+    assert result["largest_gap_minutes"] == 0
     assert result["missing_minute_gaps"] == 0
     assert len(result["sha256"]) == 64
 
 
-def test_missing_minute_is_reported(tmp_path):
+def test_single_missing_minute_is_reported(tmp_path):
     path = tmp_path / "gap.parquet"
     values = valid_values()
     values = (
@@ -65,7 +68,63 @@ def test_missing_minute_is_reported(tmp_path):
     write_dataset(path, *values)
 
     result = validate_parquet(path, expected_year=2024)
+
+    assert result["gap_intervals"] == 1
+    assert result["missing_minutes"] == 1
+    assert result["largest_gap_minutes"] == 1
     assert result["missing_minute_gaps"] == 1
+
+
+def test_multiple_gaps_and_largest_gap(tmp_path):
+    path = tmp_path / "multiple-gaps.parquet"
+    values = valid_values()
+    values = (
+        [
+            "2024-01-02T10:00:00Z",
+            "2024-01-02T10:03:00Z",
+            "2024-01-02T10:10:00Z",
+        ],
+        *values[1:],
+    )
+    write_dataset(path, *values)
+
+    result = validate_parquet(path, expected_year=2024)
+
+    assert result["gap_intervals"] == 2
+    assert result["missing_minutes"] == 8
+    assert result["largest_gap_minutes"] == 6
+
+
+def test_gap_across_batch_boundary(tmp_path):
+    path = tmp_path / "batch-boundary-gap.parquet"
+
+    timestamps = [
+        "2024-01-02T10:00:00Z",
+        "2024-01-02T10:01:00Z",
+        "2024-01-02T10:05:00Z",
+        "2024-01-02T10:06:00Z",
+    ]
+
+    write_dataset(
+        path,
+        timestamps,
+        [1.10, 1.11, 1.12, 1.13],
+        [1.12, 1.13, 1.14, 1.15],
+        [1.09, 1.10, 1.11, 1.12],
+        [1.11, 1.12, 1.13, 1.14],
+        [10.0, 12.0, 8.0, 9.0],
+    )
+
+    result = validate_parquet(
+        path,
+        expected_year=2024,
+        batch_size=2,
+    )
+
+    assert result["rows"] == 4
+    assert result["gap_intervals"] == 1
+    assert result["missing_minutes"] == 3
+    assert result["largest_gap_minutes"] == 3
 
 
 def test_strict_gap_check_fails(tmp_path):
@@ -81,7 +140,7 @@ def test_strict_gap_check_fails(tmp_path):
     )
     write_dataset(path, *values)
 
-    with pytest.raises(ValueError, match="missing-minute gaps"):
+    with pytest.raises(ValueError, match="gap intervals"):
         validate_parquet(path, expected_year=2024, strict_gaps=True)
 
 

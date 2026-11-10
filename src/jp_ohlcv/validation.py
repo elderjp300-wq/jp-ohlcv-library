@@ -19,6 +19,7 @@ REQUIRED_COLUMNS = [
 ]
 
 PRICE_COLUMNS = ["open", "high", "low", "close"]
+MINUTE_NS = 60_000_000_000
 
 
 def validate_parquet(
@@ -51,7 +52,10 @@ def validate_parquet(
             raise ValueError(f"{name} must use a floating-point type")
 
     rows = 0
-    gaps = 0
+    gap_intervals = 0
+    missing_minutes = 0
+    largest_gap_minutes = 0
+
     previous_ns = None
     first_timestamp = None
     last_timestamp = None
@@ -66,6 +70,7 @@ def validate_parquet(
             raise ValueError("Dataset contains null values")
 
         timestamps = pd.to_datetime(frame["timestamp"], utc=True)
+
         if timestamps.empty:
             continue
 
@@ -77,17 +82,30 @@ def validate_parquet(
 
         ns = timestamps.astype("int64").to_numpy()
 
-        if np.any(ns % 60_000_000_000 != 0):
+        if np.any(ns % MINUTE_NS != 0):
             raise ValueError("Timestamps must align to exact minute boundaries")
 
         differences = np.diff(ns)
+
         if previous_ns is not None:
-            differences = np.concatenate(([ns[0] - previous_ns], differences))
+            differences = np.concatenate(
+                ([ns[0] - previous_ns], differences)
+            )
 
         if np.any(differences <= 0):
             raise ValueError("Timestamps must be strictly increasing and unique")
 
-        gaps += int(np.count_nonzero(differences > 60_000_000_000))
+        gap_differences = differences[differences > MINUTE_NS]
+
+        if gap_differences.size:
+            gap_sizes = gap_differences // MINUTE_NS - 1
+
+            gap_intervals += int(gap_sizes.size)
+            missing_minutes += int(gap_sizes.sum())
+            largest_gap_minutes = max(
+                largest_gap_minutes,
+                int(gap_sizes.max()),
+            )
 
         previous_ns = int(ns[-1])
 
@@ -130,10 +148,14 @@ def validate_parquet(
     if rows == 0:
         raise ValueError("Dataset contains no rows")
 
-    if strict_gaps and gaps:
-        raise ValueError(f"Dataset contains {gaps} missing-minute gaps")
+    if strict_gaps and gap_intervals:
+        raise ValueError(
+            f"Dataset contains {gap_intervals} gap intervals "
+            f"and {missing_minutes} missing minutes"
+        )
 
     digest = hashlib.sha256()
+
     with path.open("rb") as file:
         for chunk in iter(lambda: file.read(1024 * 1024), b""):
             digest.update(chunk)
@@ -145,5 +167,8 @@ def validate_parquet(
         "sha256": digest.hexdigest(),
         "first_timestamp": first_timestamp,
         "last_timestamp": last_timestamp,
-        "missing_minute_gaps": gaps,
+        "gap_intervals": gap_intervals,
+        "missing_minutes": missing_minutes,
+        "largest_gap_minutes": largest_gap_minutes,
+        "missing_minute_gaps": gap_intervals,
     }
