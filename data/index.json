@@ -17,6 +17,25 @@
     "XAUUSD",
     "USDJPY"
   ],
-  "supported_years": [2023, 2024, 2025],
-  "datasets": []
+  "supported_years": [
+    2023,
+    2024,
+    2025
+  ],
+  "datasets": [
+    {
+      "asset": "EURUSD",
+      "year": 2023,
+      "timeframe": "1m",
+      "format": "parquet",
+      "path": "data/EURUSD/2023/1min.parquet",
+      "rows": 371125,
+      "size_bytes": 6645122,
+      "sha256": "380e93cb0ed14d9b944ffff012dec73e48a4edcc7846862f1210267194da8926",
+      "first_timestamp": "2023-01-01T22:04:00+00:00",
+      "last_timestamp": "2023-12-29T21:59:00+00:00",
+      "price_basis": "Dukascopy BID candles",
+      "volume_type": "Dukascopy provider-reported candle volume; semantics not independently verified"
+    }
+  ]
 }
