@@ -136,6 +136,20 @@
       "volume_type": "Dukascopy provider-reported candle volume; semantics not independently verified"
     },
     {
+      "asset": "US30",
+      "year": 2025,
+      "timeframe": "1m",
+      "format": "parquet",
+      "path": "data/US30/2025/1min.parquet",
+      "rows": 340939,
+      "size_bytes": 9564924,
+      "sha256": "2e0c33717cde9ac869ddce97b3d03a1bf87d4ab855397e3286dd263be7826a2c",
+      "first_timestamp": "2025-01-01T23:00:00+00:00",
+      "last_timestamp": "2025-12-31T21:13:00+00:00",
+      "price_basis": "Dukascopy BID candles",
+      "volume_type": "Dukascopy provider-reported candle volume; semantics not independently verified"
+    },
+    {
       "asset": "USDJPY",
       "year": 2023,
       "timeframe": "1m",
