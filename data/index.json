@@ -176,6 +176,20 @@
       "last_timestamp": "2025-12-31T21:58:00+00:00",
       "price_basis": "Dukascopy BID candles",
       "volume_type": "Dukascopy provider-reported candle volume; semantics not independently verified"
+    },
+    {
+      "asset": "XAUUSD",
+      "year": 2023,
+      "timeframe": "1m",
+      "format": "parquet",
+      "path": "data/XAUUSD/2023/1min.parquet",
+      "rows": 352969,
+      "size_bytes": 6795399,
+      "sha256": "7ff9b5de4684a4c4222aeb2802a513257b2b4b79840717cdde083d06447b9d46",
+      "first_timestamp": "2023-01-02T23:00:00+00:00",
+      "last_timestamp": "2023-12-29T21:58:00+00:00",
+      "price_basis": "Dukascopy BID candles",
+      "volume_type": "Dukascopy provider-reported candle volume; semantics not independently verified"
     }
   ]
 }
