@@ -1,57 +1,128 @@
 # JP OHLCV Library
 
-A public repository of historical one-minute OHLCV datasets for quantitative research, backtesting and market analysis.
+A public repository of historical **1-minute OHLCV** datasets for quantitative
+research, backtesting and market analysis.
 
-## Supported instruments
+- **6 instruments** × **3 years** = **18 datasets**, all M1, UTC, Parquet
+- Data source: **Dukascopy** BID candles
+- Every file is validated, checksummed (SHA-256), and registered in
+  [`data/index.json`](data/index.json)
 
-- EURUSD
-- GBPUSD
-- US30
-- US100
-- XAUUSD
-- USDJPY
+## Coverage
 
-## Dataset coverage
+| Instrument | 2023 | 2024 | 2025 | Approx. rows / year |
+|---|:---:|:---:|:---:|---:|
+| EURUSD | ✓ | ✓ | ✓ | ~371,000 |
+| GBPUSD | ✓ | ✓ | ✓ | ~371,000 |
+| USDJPY | ✓ | ✓ | ✓ | ~372,000 |
+| XAUUSD | ✓ | ✓ | ✓ | ~354,000 |
+| US30   | ✓ | ✓ | ✓ | ~341,000 |
+| US100  | ✓ | ✓ | ✓ | ~341,000 |
 
-The initial publication targets 2023, 2024 and 2025.
+Row counts below 525,600 are expected: Forex and index CFDs do not trade 24/7
+(weekends, and for indices, restricted sessions).
 
-Each published dataset will use this structure:
+## Access
 
-`data/ASSET/YEAR/1min.parquet`
+**Stable (recommended)** — pinned to tag `v1.0.0`:
 
-Only datasets that have been generated and passed validation will appear in `data/index.json`.
+```
+https://raw.githubusercontent.com/elderjp300-wq/jp-ohlcv-library/v1.0.0/data/ASSET/YEAR/1min.parquet
+```
 
-## Data format
+**Latest on `main`**:
 
-- Timeframe: 1 minute
-- Timestamp timezone: UTC
-- Format: Apache Parquet
-- Price basis and volume semantics: documented in the dataset catalog
-- Source: Dukascopy historical market data
+```
+https://raw.githubusercontent.com/elderjp300-wq/jp-ohlcv-library/main/data/ASSET/YEAR/1min.parquet
+```
 
-Dukascopy tick volume fields must not be confused with exchange-traded volume. The published volume definition will be documented explicitly.
+**Catalog (JSON)**:
 
-## Accessing the data
+```
+https://raw.githubusercontent.com/elderjp300-wq/jp-ohlcv-library/main/data/index.json
+```
 
-Datasets are distributed as static files through GitHub. Applications can read the catalog at:
+Examples:
 
-`https://raw.githubusercontent.com/elderjp300-wq/jp-ohlcv-library/develop/data/index.json`
+```
+https://raw.githubusercontent.com/elderjp300-wq/jp-ohlcv-library/v1.0.0/data/EURUSD/2023/1min.parquet
+https://raw.githubusercontent.com/elderjp300-wq/jp-ohlcv-library/v1.0.0/data/XAUUSD/2024/1min.parquet
+```
 
-Published dataset files can be downloaded directly from their repository paths.
+## Schema
 
-## Validation
+Every file has exactly these columns:
 
-The project includes a standalone Parquet validation tool. It checks schema, timestamps, OHLC integrity, volume values and file integrity.
+| Column | Type | Description |
+|---|---|---|
+| `timestamp` | `timestamp[us, UTC]` | Opening time of the 1-minute bar |
+| `open` | `float64` | First price in the interval |
+| `high` | `float64` | Highest price in the interval |
+| `low` | `float64` | Lowest price in the interval |
+| `close` | `float64` | Last price in the interval |
+| `volume` | `float64` | Dukascopy provider-reported candle volume |
 
-## Processing
+- Timestamps are UTC, minute-aligned, strictly increasing, no duplicates
+- Prices are positive and internally consistent (`high ≥ max(open, close)`, etc.)
+- Compression: Snappy
 
-Data processing, validation and publication are designed to run through GitHub Actions on remote Linux runners. Local compilation and Parquet dependencies are not required.
+### Volume
 
-## Development
+The `volume` field is **Dukascopy's provider-reported candle volume**. Its exact
+market interpretation is not independently established and **must not** be
+presented as centralized exchange-traded volume.
 
-- `develop`: active development and dataset preparation
-- `main`: production branch; kept untouched during development
+### Price basis
+
+BID side.
+
+## Verification
+
+Each entry in `data/index.json` includes `rows`, `size_bytes`, `sha256`,
+`first_timestamp`, `last_timestamp`. Verify any file against its catalog
+`sha256`:
+
+```bash
+URL="https://raw.githubusercontent.com/elderjp300-wq/jp-ohlcv-library/v1.0.0/data/EURUSD/2023/1min.parquet"
+curl -sL "$URL" -o eurusd_2023.parquet
+sha256sum eurusd_2023.parquet
+# compare to the corresponding sha256 in data/index.json
+```
+
+## Using it in a web app
+
+```js
+const BASE = "https://raw.githubusercontent.com/elderjp300-wq/jp-ohlcv-library/v1.0.0";
+
+const catalog = await fetch(`${BASE}/data/index.json`).then(r => r.json());
+
+const entry = catalog.datasets.find(
+  d => d.asset === "EURUSD" && d.year === 2023
+);
+
+const buf = await fetch(`${BASE}/${entry.path}`).then(r => r.arrayBuffer());
+
+// Parse in the browser with hyparquet or duckdb-wasm
+```
+
+## Reproducing / extending
+
+Datasets are produced by a manually dispatched GitHub Actions workflow:
+
+- `.github/workflows/produce-annual.yml`
+- Uses `dukascopy-downloader==1.1.0` (native M1 candles, no tick resampling)
+- Validates each file before committing
+- Only commits when validation passes
+
+To add a dataset: **Actions → Produce Annual Dataset → Run workflow**.
+
+## Branches and tags
+
+- `develop` — active development, all production runs push here first
+- `main` — stable mirror of `develop`, updated on every successful release
+- `v1.0.0` — first stable data release (all 18 datasets)
 
 ## License
 
-No open-source license has been granted. All rights are reserved unless explicitly stated otherwise.
+No open-source license has been granted. All rights reserved unless explicitly
+stated otherwise. See `pyproject.toml` (`license = { text = "UNLICENSED" }`).
